@@ -2,7 +2,7 @@ from setuptools import setup
 
 setup(
     name="qiskit-tensorflow",
-    version="0.0.1rc0",
+    version="0.0.1",
     description="A Tensorflow based simulator backend for Qiskit",
     url="http://github.com/lazyoracle/qiskit-tensorflow",
     author_name="Anurag Saha Roy",
