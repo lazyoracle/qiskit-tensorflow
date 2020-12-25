@@ -5,7 +5,7 @@ setup(
     version="0.0.1",
     description="A Tensorflow based simulator backend for Qiskit",
     url="http://github.com/lazyoracle/qiskit-tensorflow",
-    author_name="Anurag Saha Roy",
+    author="Anurag Saha Roy",
     author_email="contact@anuragsaharoy.me",
     include_package_data=True,
     packages=[
