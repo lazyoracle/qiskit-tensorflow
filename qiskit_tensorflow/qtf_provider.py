@@ -1,5 +1,5 @@
 from qiskit.providers import ProviderV1 as Provider
-from .qtf_backend import QasmSimulator  # type: ignore
+from .qtf_backend import QTFQasmSimulator as QasmSimulator  # type: ignore
 
 
 class QTFProvider(Provider):
