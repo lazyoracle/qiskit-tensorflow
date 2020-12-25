@@ -15,63 +15,59 @@ from typing import Union
 
 
 class QTFQasmSimulator(Backend):
-    MAX_QUBITS_MEMORY = 10
-    DEFAULT_CONFIGURATION = {
-        "backend_name": "qtf_qasm_simulator",
-        "backend_version": "0.0.1",
-        "n_qubits": min(100, MAX_QUBITS_MEMORY),
-        "url": "https://github.com/lazyoracle/qiskit-tensorflow",
-        "simulator": True,
-        "local": True,
-        "conditional": True,
-        "open_pulse": False,
-        "memory": True,
-        "max_shots": 65536,
-        "coupling_map": None,
-        "description": "A tensorflow simulator for qasm experiments",
-        "basis_gates": ["u1", "u2", "u3", "cx", "id", "unitary"],
-        "gates": [
-            {
-                "name": "u1",
-                "parameters": ["lambda"],
-                "qasm_def": "gate u1(lambda) q { U(0,0,lambda) q; }",
-            },
-            {
-                "name": "u2",
-                "parameters": ["phi", "lambda"],
-                "qasm_def": "gate u2(phi,lambda) q { U(pi/2,phi,lambda) q; }",
-            },
-            {
-                "name": "u3",
-                "parameters": ["theta", "phi", "lambda"],
-                "qasm_def": "gate u3(theta,phi,lambda) q { U(theta,phi,lambda) q; }",
-            },
-            {
-                "name": "cx",
-                "parameters": ["c", "t"],
-                "qasm_def": "gate cx c,t { CX c,t; }",
-            },
-            {
-                "name": "id",
-                "parameters": ["a"],
-                "qasm_def": "gate id a { U(0,0,0) a; }",
-            },
-            {
-                "name": "unitary",
-                "parameters": ["matrix"],
-                "qasm_def": "unitary(matrix) q1, q2,...",
-            },
-        ],
-    }
-
-    SHOW_FINAL_STATE = False
-
     def __init__(self, configuration=None, provider=None):
+        MAX_QUBITS_MEMORY = 10
+        configuration = {
+            "backend_name": "qtf_qasm_simulator",
+            "backend_version": "0.0.1",
+            "n_qubits": min(100, MAX_QUBITS_MEMORY),
+            "url": "https://github.com/lazyoracle/qiskit-tensorflow",
+            "simulator": True,
+            "local": True,
+            "conditional": True,
+            "open_pulse": False,
+            "memory": True,
+            "max_shots": 65536,
+            "coupling_map": None,
+            "description": "A tensorflow simulator for qasm experiments",
+            "basis_gates": ["u1", "u2", "u3", "cx", "id", "unitary"],
+            "gates": [
+                {
+                    "name": "u1",
+                    "parameters": ["lambda"],
+                    "qasm_def": "gate u1(lambda) q { U(0,0,lambda) q; }",
+                },
+                {
+                    "name": "u2",
+                    "parameters": ["phi", "lambda"],
+                    "qasm_def": "gate u2(phi,lambda) q { U(pi/2,phi,lambda) q; }",
+                },
+                {
+                    "name": "u3",
+                    "parameters": ["theta", "phi", "lambda"],
+                    "qasm_def": "gate u3(theta,phi,lambda) q { U(theta,phi,lambda) q; }",
+                },
+                {
+                    "name": "cx",
+                    "parameters": ["c", "t"],
+                    "qasm_def": "gate cx c,t { CX c,t; }",
+                },
+                {
+                    "name": "id",
+                    "parameters": ["a"],
+                    "qasm_def": "gate id a { U(0,0,0) a; }",
+                },
+                {
+                    "name": "unitary",
+                    "parameters": ["matrix"],
+                    "qasm_def": "unitary(matrix) q1, q2,...",
+                },
+            ],
+        }
+
+        SHOW_FINAL_STATE = False  # noqa
         super().__init__(
-            configuration=(
-                configuration
-                or BackendConfiguration.from_dict(self.DEFAULT_CONFIGURATION)
-            ),
+            configuration=BackendConfiguration.from_dict(configuration),
             provider=provider,
         )
 
@@ -133,6 +129,13 @@ class QTFQasmSimulator(Backend):
 
         # TODO implement internal methods for simulating circuit or qobj
 
-        res = Result()
+        res = Result(
+            backend_name="qtf_qasm_simulator",
+            backend_version="0.0.1",
+            qobj_id=None,
+            job_id=None,
+            success=False,
+            results=[],
+        )
         job = QTFJob(self, None, res)
         return job
