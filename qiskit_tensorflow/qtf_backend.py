@@ -9,6 +9,8 @@ from qiskit.providers.models import BackendConfiguration
 from qiskit.util import deprecate_arguments
 from qiskit.result import Result
 
+from .qtf_job import QTFJob
+
 from typing import Union
 
 
@@ -80,18 +82,18 @@ class QTFQasmSimulator(Backend):
         )
 
     @deprecate_arguments({"qobj": "circuit"})
-    def run(self, circuit: Union[qobj.Qobj, QuantumCircuit], **kwargs) -> Result:
-        """Parse and run a Qobj
+    def run(self, circuit: Union[qobj.Qobj, QuantumCircuit], **kwargs) -> QTFJob:
+        """Parse and run a Qobj or QuantumCircuit. Sync only
 
         Parameters
         ----------
-        qobj : [Qobj, QuantumCircuit]
-            [description]
+        circuit : [Qobj, QuantumCircuit]
+            The Qobj or QuantumCircuit to be simulated
 
         Returns
         -------
-        Result
-            [description]
+        QTFJob
+            An instance of the QTFJob with the result
 
         Raises
         ------
@@ -129,6 +131,8 @@ class QTFQasmSimulator(Backend):
                 )
             # TODO parse circuit to json
 
-        # TODO obtain Result object as output of Job.
+        # TODO implement internal methods for simulating circuit or qobj
+
         res = Result()
-        return res
+        job = QTFJob(self, None, res)
+        return job
