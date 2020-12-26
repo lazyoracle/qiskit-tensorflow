@@ -1,4 +1,4 @@
-from typing import OrderedDict
+from collections import OrderedDict
 from qiskit.exceptions import QiskitError
 from qiskit.providers.provider import ProviderV1
 from qiskit.providers.exceptions import QiskitBackendNotFoundError
