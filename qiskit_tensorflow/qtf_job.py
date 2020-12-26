@@ -4,6 +4,15 @@ from qiskit.result import Result
 
 
 class QTFJob(Job):
+    """QTFJob class
+
+    Parameters
+    ----------
+    Job : JobV1
+        Inherits JobV1 from qiskit.providers
+
+    """
+
     _async = False
 
     def __init__(self, backend, job_id, result):
@@ -19,7 +28,7 @@ class QTFJob(Job):
 
         Returns
         -------
-        Result
+        qiskit.Result
             Result of the job simulation
         """
         return self._result
@@ -29,7 +38,7 @@ class QTFJob(Job):
 
         Returns
         -------
-        JobStatus
+        qiskit.providers.JobStatus
             Status of the job
         """
         return JobStatus.DONE
