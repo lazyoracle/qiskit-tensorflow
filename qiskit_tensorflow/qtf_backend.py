@@ -34,6 +34,7 @@ class QTFQasmSimulator(Backend):
     """
 
     MAX_QUBITS_MEMORY = int(log2(local_hardware_info()["memory"] * (1024 ** 3) / 16))
+    # TODO Change self.configuration to self._configuration to fix conflict
     configuration = {
         "backend_name": "qtf_qasm_simulator",
         "backend_version": "0.0.1",
