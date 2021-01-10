@@ -35,7 +35,7 @@ class QTFQasmSimulator(Backend):
 
     MAX_QUBITS_MEMORY = int(log2(local_hardware_info()["memory"] * (1024 ** 3) / 16))
     # TODO Change self.configuration to self._configuration to fix conflict
-    configuration = {
+    _configuration = {
         "backend_name": "qtf_qasm_simulator",
         "backend_version": "0.0.1",
         "n_qubits": min(100, MAX_QUBITS_MEMORY),
@@ -90,7 +90,7 @@ class QTFQasmSimulator(Backend):
     def __init__(self, configuration=None, provider=None, **fields):
         super().__init__(
             configuration=(
-                configuration or QasmBackendConfiguration.from_dict(self.configuration)
+                configuration or QasmBackendConfiguration.from_dict(self._configuration)
             ),
             provider=provider,
             **fields
@@ -235,180 +235,190 @@ class QTFQasmSimulator(Backend):
             If an error occured
         """
         start = time.time()
-        self._number_of_qubits = experiment.config.n_qubits
-        self._number_of_cmembits = experiment.config.memory_slots
-        self._statevector = 0  # TODO Convert to tf.Variable
-        self._classical_memory = 0
-        self._classical_register = 0
-        self._sample_measure = False
-        global_phase = experiment.header.global_phase
-        # Validate the dimension of initial statevector if set
-        self._validate_initial_statevector()
-        # Get the seed looking in circuit, qobj, and then random.
-        if hasattr(experiment.config, "seed_simulator"):
-            seed_simulator = experiment.config.seed_simulator
-        elif hasattr(self._qobj_config, "seed_simulator"):
-            seed_simulator = self._qobj_config.seed_simulator
-        else:
-            # For compatibility on Windows force dyte to be int32
-            # and set the maximum value to be (2 ** 31) - 1
-            seed_simulator = np.random.randint(
-                2147483647, dtype="int32"
-            )  # TODO Convert to tf.random
+        # self._number_of_qubits = experiment.config.n_qubits
+        # self._number_of_cmembits = experiment.config.memory_slots
+        # self._statevector = 0  # TODO Convert to tf.Variable
+        # self._classical_memory = 0
+        # self._classical_register = 0
+        # self._sample_measure = False
+        # global_phase = experiment.header.global_phase
+        # # Validate the dimension of initial statevector if set
+        # self._validate_initial_statevector()
+        # # Get the seed looking in circuit, qobj, and then random.
+        # if hasattr(experiment.config, "seed_simulator"):
+        #     seed_simulator = experiment.config.seed_simulator
+        # elif hasattr(self._qobj_config, "seed_simulator"):
+        #     seed_simulator = self._qobj_config.seed_simulator
+        # else:
+        #     # For compatibility on Windows force dyte to be int32
+        #     # and set the maximum value to be (2 ** 31) - 1
+        #     seed_simulator = np.random.randint(
+        #         2147483647, dtype="int32"
+        #     )  # TODO Convert to tf.random
 
-        self._local_random.seed(seed=seed_simulator)
-        # Check if measure sampling is supported for current circuit
-        self._validate_measure_sampling(experiment)
+        # self._local_random.seed(seed=seed_simulator)
+        # # Check if measure sampling is supported for current circuit
+        # self._validate_measure_sampling(experiment)
 
-        # List of final counts for all shots
-        memory = []
-        # Check if we can sample measurements, if so we only perform 1 shot
-        # and sample all outcomes from the final state vector
-        if self._sample_measure:
-            shots = 1
-            # Store (qubit, cmembit) pairs for all measure ops in circuit to
-            # be sampled
-            measure_sample_ops = []
-        else:
-            shots = self._shots
-        for _ in range(shots):
-            self._initialize_statevector()
-            # apply global_phase
-            self._statevector *= np.exp(1j * global_phase)  # TODO Convert to tf.exp
-            # Initialize classical memory to all 0
-            self._classical_memory = 0
-            self._classical_register = 0
-            for operation in experiment.instructions:
-                conditional = getattr(operation, "conditional", None)
-                if isinstance(conditional, int):
-                    conditional_bit_set = (self._classical_register >> conditional) & 1
-                    if not conditional_bit_set:
-                        continue
-                elif conditional is not None:
-                    mask = int(operation.conditional.mask, 16)
-                    if mask > 0:
-                        value = self._classical_memory & mask
-                        while (mask & 0x1) == 0:
-                            mask >>= 1
-                            value >>= 1
-                        if value != int(operation.conditional.val, 16):
-                            continue
+        # # List of final counts for all shots
+        # memory = []
+        # # Check if we can sample measurements, if so we only perform 1 shot
+        # # and sample all outcomes from the final state vector
+        # if self._sample_measure:
+        #     shots = 1
+        #     # Store (qubit, cmembit) pairs for all measure ops in circuit to
+        #     # be sampled
+        #     measure_sample_ops = []
+        # else:
+        #     shots = self._shots
+        # for _ in range(shots):
+        #     self._initialize_statevector()
+        #     # apply global_phase
+        #     self._statevector *= np.exp(1j * global_phase)  # TODO Convert to tf.exp
+        #     # Initialize classical memory to all 0
+        #     self._classical_memory = 0
+        #     self._classical_register = 0
+        #     for operation in experiment.instructions:
+        #         conditional = getattr(operation, "conditional", None)
+        #         if isinstance(conditional, int):
+        #             conditional_bit_set = (self._classical_register >> conditional) & 1
+        #             if not conditional_bit_set:
+        #                 continue
+        #         elif conditional is not None:
+        #             mask = int(operation.conditional.mask, 16)
+        #             if mask > 0:
+        #                 value = self._classical_memory & mask
+        #                 while (mask & 0x1) == 0:
+        #                     mask >>= 1
+        #                     value >>= 1
+        #                 if value != int(operation.conditional.val, 16):
+        #                     continue
 
-                # Check if single  gate
-                if operation.name == "unitary":
-                    qubits = operation.qubits
-                    gate = operation.params[0]
-                    self._add_unitary(gate, qubits)
-                elif operation.name in ("U", "u1", "u2", "u3"):
-                    params = getattr(operation, "params", None)
-                    qubit = operation.qubits[0]
-                    gate = single_gate_matrix(operation.name, params)  # TODO Implement
-                    self._add_unitary(gate, [qubit])
-                # Check if CX gate
-                elif operation.name in ("id", "u0"):
-                    pass
-                elif operation.name in ("CX", "cx"):
-                    qubit0 = operation.qubits[0]
-                    qubit1 = operation.qubits[1]
-                    gate = cx_gate_matrix()  # TODO Implement
-                    self._add_unitary(gate, [qubit0, qubit1])
-                # Check if reset
-                elif operation.name == "reset":
-                    qubit = operation.qubits[0]
-                    self._add_qasm_reset(qubit)
-                # Check if barrier
-                elif operation.name == "barrier":
-                    pass
-                # Check if measure
-                elif operation.name == "measure":
-                    qubit = operation.qubits[0]
-                    cmembit = operation.memory[0]
-                    cregbit = (
-                        operation.register[0]
-                        if hasattr(operation, "register")
-                        else None
-                    )
+        #         # Check if single  gate
+        #         if operation.name == "unitary":
+        #             qubits = operation.qubits
+        #             gate = operation.params[0]
+        #             self._add_unitary(gate, qubits)
+        #         elif operation.name in ("U", "u1", "u2", "u3"):
+        #             params = getattr(operation, "params", None)
+        #             qubit = operation.qubits[0]
+        #             gate = single_gate_matrix(operation.name, params)  # TODO Implement
+        #             self._add_unitary(gate, [qubit])
+        #         # Check if CX gate
+        #         elif operation.name in ("id", "u0"):
+        #             pass
+        #         elif operation.name in ("CX", "cx"):
+        #             qubit0 = operation.qubits[0]
+        #             qubit1 = operation.qubits[1]
+        #             gate = cx_gate_matrix()  # TODO Implement
+        #             self._add_unitary(gate, [qubit0, qubit1])
+        #         # Check if reset
+        #         elif operation.name == "reset":
+        #             qubit = operation.qubits[0]
+        #             self._add_qasm_reset(qubit)
+        #         # Check if barrier
+        #         elif operation.name == "barrier":
+        #             pass
+        #         # Check if measure
+        #         elif operation.name == "measure":
+        #             qubit = operation.qubits[0]
+        #             cmembit = operation.memory[0]
+        #             cregbit = (
+        #                 operation.register[0]
+        #                 if hasattr(operation, "register")
+        #                 else None
+        #             )
 
-                    if self._sample_measure:
-                        # If sampling measurements record the qubit and cmembit
-                        # for this measurement for later sampling
-                        measure_sample_ops.append((qubit, cmembit))
-                    else:
-                        # If not sampling perform measurement as normal
-                        self._add_qasm_measure(qubit, cmembit, cregbit)
-                elif operation.name == "bfunc":
-                    mask = int(operation.mask, 16)
-                    relation = operation.relation
-                    val = int(operation.val, 16)
+        #             if self._sample_measure:
+        #                 # If sampling measurements record the qubit and cmembit
+        #                 # for this measurement for later sampling
+        #                 measure_sample_ops.append((qubit, cmembit))
+        #             else:
+        #                 # If not sampling perform measurement as normal
+        #                 self._add_qasm_measure(qubit, cmembit, cregbit)
+        #         elif operation.name == "bfunc":
+        #             mask = int(operation.mask, 16)
+        #             relation = operation.relation
+        #             val = int(operation.val, 16)
 
-                    cregbit = operation.register
-                    cmembit = operation.memory if hasattr(operation, "memory") else None
+        #             cregbit = operation.register
+        #             cmembit = operation.memory if hasattr(operation, "memory") else None
 
-                    compared = (self._classical_register & mask) - val
+        #             compared = (self._classical_register & mask) - val
 
-                    if relation == "==":
-                        outcome = compared == 0
-                    elif relation == "!=":
-                        outcome = compared != 0
-                    elif relation == "<":
-                        outcome = compared < 0
-                    elif relation == "<=":
-                        outcome = compared <= 0
-                    elif relation == ">":
-                        outcome = compared > 0
-                    elif relation == ">=":
-                        outcome = compared >= 0
-                    else:
-                        raise QTFError("Invalid boolean function relation.")
+        #             if relation == "==":
+        #                 outcome = compared == 0
+        #             elif relation == "!=":
+        #                 outcome = compared != 0
+        #             elif relation == "<":
+        #                 outcome = compared < 0
+        #             elif relation == "<=":
+        #                 outcome = compared <= 0
+        #             elif relation == ">":
+        #                 outcome = compared > 0
+        #             elif relation == ">=":
+        #                 outcome = compared >= 0
+        #             else:
+        #                 raise QTFError("Invalid boolean function relation.")
 
-                    # Store outcome in register and optionally memory slot
-                    regbit = 1 << cregbit
-                    self._classical_register = (
-                        self._classical_register & (~regbit)
-                    ) | (int(outcome) << cregbit)
-                    if cmembit is not None:
-                        membit = 1 << cmembit
-                        self._classical_memory = (
-                            self._classical_memory & (~membit)
-                        ) | (int(outcome) << cmembit)
-                else:
-                    backend = self.name()
-                    err_msg = '{0} encountered unrecognized operation "{1}"'
-                    raise QTFError(err_msg.format(backend, operation.name))
+        #             # Store outcome in register and optionally memory slot
+        #             regbit = 1 << cregbit
+        #             self._classical_register = (
+        #                 self._classical_register & (~regbit)
+        #             ) | (int(outcome) << cregbit)
+        #             if cmembit is not None:
+        #                 membit = 1 << cmembit
+        #                 self._classical_memory = (
+        #                     self._classical_memory & (~membit)
+        #                 ) | (int(outcome) << cmembit)
+        #         else:
+        #             backend = self.name()
+        #             err_msg = '{0} encountered unrecognized operation "{1}"'
+        #             raise QTFError(err_msg.format(backend, operation.name))
 
-            # Add final creg data to memory list
-            if self._number_of_cmembits > 0:
-                if self._sample_measure:
-                    # If sampling we generate all shot samples from the final statevector
-                    memory = self._add_sample_measure(measure_sample_ops, self._shots)
-                else:
-                    # Turn classical_memory (int) into bit string and pad zero for unused cmembits
-                    outcome = bin(self._classical_memory)[2:]
-                    memory.append(hex(int(outcome, 2)))
+        #     # Add final creg data to memory list
+        #     if self._number_of_cmembits > 0:
+        #         if self._sample_measure:
+        #             # If sampling we generate all shot samples from the final statevector
+        #             memory = self._add_sample_measure(measure_sample_ops, self._shots)
+        #         else:
+        #             # Turn classical_memory (int) into bit string and pad zero for unused cmembits
+        #             outcome = bin(self._classical_memory)[2:]
+        #             memory.append(hex(int(outcome, 2)))
 
-        # Add data
-        data = {"counts": dict(Counter(memory))}
-        # Optionally add memory list
-        if self._memory:
-            data["memory"] = memory
-        # Optionally add final statevector
-        if self.SHOW_FINAL_STATE:
-            data["statevector"] = self._get_statevector()
-            # Remove empty counts and memory for statevector simulator
-            if not data["counts"]:
-                data.pop("counts")
-            if "memory" in data and not data["memory"]:
-                data.pop("memory")
+        # # Add data
+        # data = {"counts": dict(Counter(memory))}
+        # # Optionally add memory list
+        # if self._memory:
+        #     data["memory"] = memory
+        # # Optionally add final statevector
+        # if self.SHOW_FINAL_STATE:
+        #     data["statevector"] = self._get_statevector()
+        #     # Remove empty counts and memory for statevector simulator
+        #     if not data["counts"]:
+        #         data.pop("counts")
+        #     if "memory" in data and not data["memory"]:
+        #         data.pop("memory")
         end = time.time()
+        # return {
+        #     "name": experiment.header.name,
+        #     "seed_simulator": seed_simulator,
+        #     "shots": self._shots,
+        #     "data": data,
+        #     "status": "DONE",
+        #     "success": True,
+        #     "time_taken": (end - start),
+        #     "header": experiment.header.to_dict(),
+        # }
+
         return {
-            "name": experiment.header.name,
-            "seed_simulator": seed_simulator,
-            "shots": self._shots,
-            "data": data,
-            "status": "DONE",
+            "name": "dummy_name",
+            "seed": 2441129,
+            "shots": 100,
+            "data": {"counts": {"0x9": 5}, "memory": ["0x9", "0xF", "0x1D", "0x9"]},
+            "status": "Job Done",
             "success": True,
-            "time_taken": (end - start),
-            "header": experiment.header.to_dict(),
+            "time_taken": 123456,
         }
 
     def _validate(self, qobj):
@@ -434,3 +444,36 @@ class QTFQasmSimulator(Backend):
                     "classical register will remain all zeros.",
                     name,
                 )
+
+    def _set_options(self, qobj_config=None, backend_options=None):
+        """Set the backend options for all experiments in a qobj"""
+        # Reset default options
+        self._initial_statevector = self.options.get("initial_statevector")
+        self._chop_threshold = self.options.get("chop_threshold")
+        if "backend_options" in backend_options and backend_options["backend_options"]:
+            backend_options = backend_options["backend_options"]
+
+        # Check for custom initial statevector in backend_options first,
+        # then config second
+        if "initial_statevector" in backend_options:
+            self._initial_statevector = np.array(
+                backend_options["initial_statevector"], dtype=complex
+            )
+        elif hasattr(qobj_config, "initial_statevector"):
+            self._initial_statevector = np.array(
+                qobj_config.initial_statevector, dtype=complex
+            )
+        if self._initial_statevector is not None:
+            # Check the initial statevector is normalized
+            norm = np.linalg.norm(self._initial_statevector)
+            if round(norm, 12) != 1:
+                raise QTFError(
+                    "initial statevector is not normalized: "
+                    + "norm {} != 1".format(norm)
+                )
+        # Check for custom chop threshold
+        # Replace with custom options
+        if "chop_threshold" in backend_options:
+            self._chop_threshold = backend_options["chop_threshold"]
+        elif hasattr(qobj_config, "chop_threshold"):
+            self._chop_threshold = qobj_config.chop_threshold
